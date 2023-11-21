@@ -16,7 +16,7 @@ const getBook:Endpoint = {
   auth: NO_AUTHORIZATION,
   requestHandler: async (req, res, next) => {
     const id = req.params['id']
-    return bookService.getBook(id)
+    return await bookService.getBook(id)
   }
 }
 const getBooks:Endpoint = {
@@ -80,10 +80,10 @@ const updateBookSchema:JSONSchemaType<Omit<BookUpdateRequest, 'id'>> = {
   required: [],
   properties: {
     name: {type: "string", nullable: true},
-    edition: {type: "number", nullable: true},
+    edition: {type: "integer", nullable: true},
     pages: {
       type: "array",
-      items: createPageSchema,
+      items: updatePageSchema,
       nullable: true,
     }
   }
@@ -111,7 +111,6 @@ const releaseNewEditionSchema:JSONSchemaType<Omit<NewEditionReleaseRequest, 'boo
     updatedPages: {
       type: "array",
       items: createPageSchema,
-      nullable: true,
     }
   }
 }

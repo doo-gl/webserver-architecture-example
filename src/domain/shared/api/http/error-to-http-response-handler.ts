@@ -3,7 +3,7 @@
 import {ErrorRequestHandler} from "./request-handler";
 import express from "express";
 import {NotFoundError} from "../../component/error/not-found-error";
-import {logger} from "../../client/logger";
+import {logger} from "../../client/environment/logger";
 
 export type ErrorMatcher = (err:any, res:express.Request, req:express.Response) => boolean;
 export type ResponseMutator = (err:any, res:express.Request, req:express.Response) => void;

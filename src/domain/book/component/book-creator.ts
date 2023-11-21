@@ -13,7 +13,7 @@ export interface BookCreationRequest {
 
 const create = async (request:BookCreationRequest):Promise<BookDto> => {
 
-
+  return {name: '', edition: 1, pages: [], id: ''}
 }
 
 export const bookCreator = {

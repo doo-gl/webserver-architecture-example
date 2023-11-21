@@ -8,6 +8,7 @@ const persist = async (request:BookCreationRequest):Promise<BookDto> => {
   // read ID
   // save pages with book ID
   // close transaction
+  return {name: '', edition: 1, pages: [], id: ''}
 }
 
 export const transactionalBookPersister = {

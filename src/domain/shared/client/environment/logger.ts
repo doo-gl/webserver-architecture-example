@@ -7,19 +7,30 @@ export enum LogLevel {
 }
 
 const write = (level:LogLevel, message?:string, object?:any):void => {
-  const convertedObject = JSON.stringify(object)
+  const convertedObject = object
+    ? JSON.stringify(object)
+    : undefined
+
   switch (level) {
     case LogLevel.DEBUG:
-      console.debug(message, convertedObject)
+      convertedObject
+        ? console.debug(message, convertedObject)
+        : console.debug(message)
       break;
     case LogLevel.INFO:
-      console.info(message, convertedObject)
+      convertedObject
+        ? console.info(message, convertedObject)
+        : console.info(message)
       break;
     case LogLevel.WARN:
-      console.warn(message, convertedObject)
+      convertedObject
+        ? console.warn(message, convertedObject)
+        : console.warn(message)
       break;
     case LogLevel.ERROR:
-      console.error(message, convertedObject)
+      convertedObject
+        ? console.error(message, convertedObject)
+        : console.error(message)
       break;
   }
 }

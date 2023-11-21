@@ -1,8 +1,8 @@
 
 
 import {ErrorRequestHandler} from "./request-handler";
-import {logger} from "../../client/logger";
-import {environment} from "../../client/environment";
+import {logger} from "../../client/environment/logger";
+import {environment} from "../../client/environment/environment";
 
 export const errorRequestHandler:ErrorRequestHandler = (err, req, res, next) => {
   // set locals, do not add error in prod

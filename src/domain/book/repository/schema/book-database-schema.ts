@@ -1,4 +1,4 @@
-import {BaseTable} from "../../shared/repository/base-database-schema";
+import {BaseTable} from "../../../shared/repository/base-database-schema";
 
 
 export interface BookDatabase {

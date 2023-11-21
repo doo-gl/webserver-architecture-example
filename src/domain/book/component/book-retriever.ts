@@ -1,4 +1,5 @@
 import {BookDto} from "./book-dto";
+import {transactionalBookRetriever} from "../transactional/transactional-book-retriever";
 
 export interface BookRetrieveManyRequest {
   name?:string
@@ -10,11 +11,11 @@ export interface BookRetrieveManyResponse {
 }
 
 const retrieve = async (id:string):Promise<BookDto> => {
-
+  return transactionalBookRetriever.retrieve(id)
 }
 
 const retrieveMany = async (request:BookRetrieveManyRequest):Promise<BookRetrieveManyResponse> => {
-
+  return {results: []}
 }
 
 export const bookRetriever = {

@@ -16,7 +16,8 @@ const map = (
     responsePromise
       .then((responseResult: object|string|void|undefined|null) => {
         if (responseResult === undefined || responseResult === null) {
-          // Do not set anything in the response
+          // Send empty response
+          res.send();
         } else if (responseFormat === ResponseFormat.JSON) {
           res.json(responseResult);
         } else { // responseFormat === ResponseFormat.STRING
