@@ -1,29 +1,17 @@
 import {BookDto} from "../component/book-dto";
-import {bookDatabaseHolder} from "../repository/book-database-holder";
-import {Kysely} from "kysely";
-import {BookDatabase} from "../repository/schema/book-database-schema";
-import {uuid} from "../../shared/client/external-lib/uuid";
+import {bookRepository} from "../repository/book-repository";
+import {pageRepository} from "../repository/page-repository";
+import {bookDtoMapper} from "./book-dto-mapper";
+import {NotFoundError} from "../../shared/component/error/not-found-error";
 
 
 const retrieve = async (id:string):Promise<BookDto> => {
-  const db:Kysely<BookDatabase> = bookDatabaseHolder.get()
-  await db.insertInto('book')
-    .values({
-      name: 'foo',
-      edition: 1,
-      id: uuid(),
-      date_created: new Date(),
-      date_last_modified: new Date()
-    })
-    .execute()
-
-  const bookRow = await db.selectFrom('book')
-    .innerJoin('page', 'page.book_id', 'book.id')
-
-    // .where('book.name', '=', 'foo')
-    // .executeTakeFirst()
-
-  return bookRow
+  const bookRow = await bookRepository.getOne(id)
+  if (!bookRow) {
+    throw new NotFoundError(`Failed to find Book with id: ${id}`)
+  }
+  const pageRows = await pageRepository.getMany([{field: "book_id", operation: "=", value: id}])
+  return bookDtoMapper.map(bookRow, pageRows)
 }
 
 export const transactionalBookRetriever = {

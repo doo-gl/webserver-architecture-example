@@ -3,14 +3,15 @@ import {Kysely, PostgresDialect} from 'kysely'
 import {bookDatabaseConfig} from "../client/config/book-database-config";
 import {PostgresPool} from "kysely/dist/esm/dialect/postgres/postgres-dialect-config";
 import {BookDatabase} from "./schema/book-database-schema";
+import {Database} from "../../shared/repository/base-database-holder";
 
 
-let database:Kysely<BookDatabase>|null = null
+let database:Database<BookDatabase>|null = null
 
-const buildConnection = () => {
+const buildConnection = ():Database<BookDatabase> => {
 
   const databaseConfig = bookDatabaseConfig.get()
-  const pool:PostgresPool = new Pool({
+  const pool = new Pool({
     database: databaseConfig.databaseName(),
     host: databaseConfig.host(),
     user: databaseConfig.user(),
@@ -20,15 +21,18 @@ const buildConnection = () => {
   })
 
   const dialect = new PostgresDialect({
-    pool,
+    pool: <PostgresPool>pool,
   })
 
-  return new Kysely<BookDatabase>({
-    dialect,
-  })
+  return {
+    kysely: new Kysely<BookDatabase>({
+      dialect,
+    }),
+    pool
+  }
 }
 
-const get = ():Kysely<BookDatabase> => {
+const get = ():Database<BookDatabase> => {
   if (!database) {
     database = buildConnection()
   }

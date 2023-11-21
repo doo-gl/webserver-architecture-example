@@ -4,13 +4,13 @@ import {bookDatabaseHolder} from "../book-database-holder";
 
 
 const migrateUp = async ():Promise<void> => {
-  await databaseMigrator.migrateUp(bookDatabaseHolder.get(), join(__dirname, 'migration'))
+  await databaseMigrator.migrateUp(bookDatabaseHolder.get().kysely, join(__dirname, 'migration'))
 }
 const migrateDown = async ():Promise<void> => {
-  await databaseMigrator.migrateDown(bookDatabaseHolder.get(), join(__dirname, 'migration'))
+  await databaseMigrator.migrateDown(bookDatabaseHolder.get().kysely, join(__dirname, 'migration'))
 }
 const migrateToLatest = async ():Promise<void> => {
-  await databaseMigrator.migrateToLatest(bookDatabaseHolder.get(), join(__dirname, 'migration'))
+  await databaseMigrator.migrateToLatest(bookDatabaseHolder.get().kysely, join(__dirname, 'migration'))
 }
 
 export const bookDatabaseMigrator = {
