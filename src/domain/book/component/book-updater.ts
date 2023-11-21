@@ -1,3 +1,4 @@
+import {BookDto} from "./book-dto";
 
 export interface PageUpdateRequest {
   id:string,
@@ -12,3 +13,10 @@ export interface BookUpdateRequest {
   pages?:Array<PageUpdateRequest>
 }
 
+const update = async (request:BookUpdateRequest):Promise<BookDto> => {
+
+}
+
+export const bookUpdater = {
+  update,
+}
