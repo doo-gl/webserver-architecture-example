@@ -1,11 +1,12 @@
 
-import {Pool, PoolClient, QueryResult} from "pg";
-import {BaseTable, Create} from "./base-database-schema";
+import {Client, Pool, PoolClient, QueryResult} from "pg";
+import {BaseTable, BatchUpdate, Create, Update} from "./base-database-schema";
 import {logger} from "../client/environment/logger";
 import {NotFoundError} from "../component/error/not-found-error";
 import {UnexpectedError} from "../component/error/unexpected-error";
+import {InvalidArgumentError} from "../component/error/invalid-argument-error";
 
-type QueryOperation = '='|'!='
+type QueryOperation = '=='|'!='|'in-array'
 
 export interface Query<T> {
   field:Extract<keyof T, string>|string,
@@ -24,7 +25,7 @@ export interface Sort<T> {
 }
 
 export interface QueryOptions {
-  client?:PoolClient,
+  client?:Client,
 }
 
 export interface GetManyQueryOptions<T> extends QueryOptions {
@@ -44,7 +45,15 @@ export class PostgresBaseCrudRepository<TABLE_ROW extends BaseTable> {
     this._tableName = tableName
   }
 
-  private async _runQuery<T>(query:string, params:Array<any>, options?:QueryOptions):Promise<T> {
+  getTableName():string {
+    return this._tableName
+  }
+
+  getPool():Pool {
+    return this._pool;
+  }
+
+  private async _runQuery<T>(query:string, params:Array<any>, options?:QueryOptions):Promise<QueryResult<T>> {
     if (options?.client) {
       return options.client.query(query, params)
     }
@@ -73,6 +82,30 @@ export class PostgresBaseCrudRepository<TABLE_ROW extends BaseTable> {
     }
   }
 
+  _mapQueryToWhereClause(query:Query<TABLE_ROW>, params:Array<any>):{whereClause:string, params:Array<any>} {
+    const newParams = params.slice()
+    switch (query.operation) {
+      case "==":
+        newParams.push(query.value)
+        return {whereClause: `(${query.field} = $${params.length})`, params: newParams}
+      case "!=":
+        newParams.push(query.value)
+        return {whereClause: `(${query.field} != $${params.length})`, params: newParams}
+      case "in-array":
+        if (!Array.isArray(query.value)) {
+          throw new InvalidArgumentError(`Passed an object that is not array to "in-array" query operator, actual type: ${typeof query.value}`)
+        }
+        const paramNames = new Array<string>()
+        query.value.forEach(val => {
+          newParams.push(val)
+          paramNames.push(`$${newParams.length}`)
+        })
+        return {whereClause: `(${query.field} IN (${paramNames.join(', ')}))`, params: newParams}
+      default:
+        throw new InvalidArgumentError(`Unrecognised operation: ${query.operation}`)
+    }
+  }
+
   async getMany(
     queries:Array<Query<TABLE_ROW>>,
     queryOptions:GetManyQueryOptions<TABLE_ROW>|null = null
@@ -82,11 +115,11 @@ export class PostgresBaseCrudRepository<TABLE_ROW extends BaseTable> {
     }
 
     let whereClause = '1 = 1'
-    const params = new Array<any>()
+    let params = new Array<any>()
     queries.forEach((query:Query<TABLE_ROW>) => {
-      params.push(query.value)
-      const newClauseSuffix = `(${query.field} ${query.operation} $${params.length})`
-      whereClause = `${whereClause} AND ${newClauseSuffix}`
+      const newWhereClause = this._mapQueryToWhereClause(query, params)
+      whereClause = `${whereClause} AND ${newWhereClause.whereClause}`
+      params = newWhereClause.params
     })
 
     let orderClause = ''
@@ -117,17 +150,20 @@ export class PostgresBaseCrudRepository<TABLE_ROW extends BaseTable> {
     return result.rows
   }
 
-  // async getByIds(ids:Array<string>):Promise<Array<T>> {
-  //
-  // }
-  //
-  // async getMany(
-  //   query:Array<>,
-  //   options:,
-  // ):Promise<Array<T>> {
-  //
-  // }
-  //
+  async getByIds(ids:Array<string>, options?:QueryOptions):Promise<Array<TABLE_ROW>> {
+
+    const paramKeys = ids.map((value, index) => `${index + 1}`)
+
+    const query = `
+      SELECT *
+      FROM ${this._tableName}
+      WHERE id IN (${paramKeys.join(', ')})
+      ORDER BY id
+      LIMIT 1
+    `
+    const result:QueryResult<TABLE_ROW> = await this._runQuery(query, ids, options)
+    return result.rows
+  }
 
   _buildInsertOneQuery(createRow:Create<TABLE_ROW>):{query:string, values:Array<any>} {
     const columnNames = new Array<string>()
@@ -174,6 +210,97 @@ export class PostgresBaseCrudRepository<TABLE_ROW extends BaseTable> {
     return createdRow
   }
 
+  _buildInsertManyQuery(createRows:Array<Create<TABLE_ROW>>):{query:string, values:Array<any>} {
+    const columnNames = new Array<string>()
+    const firstCreate = createRows[0]
+    Object.keys(firstCreate).forEach(key => {
+      columnNames.push(key)
+    })
 
+    const columnValues = new Array<string>()
+    const insertStatements = new Array<string>()
+    createRows.forEach(row => {
+      const columnParams = new Array<string>()
+      Object.keys(row).forEach(key => {
+        const value = row[key]
+        columnValues.push(value ?? null)
+        columnParams.push(`$${columnValues.length}`)
+      })
+      insertStatements.push(`(${columnParams.join(', ')})`)
+    })
+
+    const query = `
+      INSERT INTO ${this._tableName}
+      (${columnNames.join(', ')})
+      VALUES 
+      ${insertStatements.join(' ')}
+    `
+    return {query, values:columnValues}
+  }
+
+  async batchCreate(creates:Array<Create<TABLE_ROW>>, options?:QueryOptions):Promise<Array<string>> {
+    if (creates.length === 0) {
+      return []
+    }
+    const insertQuery = this._buildInsertManyQuery(creates)
+
+    const query = `
+      ${insertQuery.query}
+      RETURNING id
+    `
+
+    const result:QueryResult<string> = await this._runQuery(query, insertQuery.values, options)
+    if (result.rows.length === 0) {
+      throw new UnexpectedError(`Failed to create ${creates.length} new ${this._tableName}, in batch`)
+    }
+    const createdIds = result.rows
+    return createdIds
+  }
+
+  _buildUpdateOneQuery(id:string, updateRow:Update<TABLE_ROW>):{query:string, values:Array<any>} {
+    const columnNames = new Array<string>()
+    const columnParams = new Array<string>()
+    const columnValues = new Array<string>()
+
+    columnValues.push(id)
+
+    Object.keys(updateRow).forEach(key => {
+      const value = updateRow[key]
+      columnNames.push(key)
+      columnValues.push(value ?? null)
+      columnParams.push(`$${columnValues.length}`)
+    })
+
+    const query = `
+      UPDATE ${this._tableName}
+      SET (${columnNames.join(', ')}) = (${columnParams.join(', ')})
+      WHERE id = $1
+    `
+    return {query, values:columnValues}
+  }
+
+  async updateAndReturn(id:string, updateRow:Update<TABLE_ROW>, options?:QueryOptions):Promise<TABLE_ROW> {
+
+    const builtQuery = this._buildUpdateOneQuery(id, updateRow)
+    const query = `
+      ${builtQuery.query}
+      RETURNING *
+    `
+
+    const result:QueryResult<TABLE_ROW> = await this._runQuery(query, builtQuery.values, options)
+    if (result.rows.length === 0) {
+      throw new UnexpectedError(`Failed to update ${this._tableName} with id: ${id}`)
+    }
+    return result.rows[0]
+  }
+
+  async updateOnly(id:string, updateRow:Update<TABLE_ROW>, options?:QueryOptions):Promise<void> {
+    const builtQuery = this._buildUpdateOneQuery(id, updateRow)
+    await this._runQuery(builtQuery.query, builtQuery.values, options)
+  }
+
+  async batchUpdate(updates:Array<BatchUpdate<TABLE_ROW>>, options?:QueryOptions):Promise<{ids:Array<string>}> {
+    // todo, update all rows in batch, return the ids of the updated rows
+  }
 
 }

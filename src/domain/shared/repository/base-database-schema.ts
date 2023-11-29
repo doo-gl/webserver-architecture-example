@@ -8,3 +8,4 @@ export interface BaseTable {
 
 export type Create<T extends BaseTable> = Omit<T, keyof BaseTable>
 export type Update<T extends BaseTable> = Partial<Create<T>>
+export type BatchUpdate<T extends BaseTable> = {id:string, update:Update<T>}

@@ -15,7 +15,7 @@ const retrieve = async (id:string):Promise<BookDto> => {
 }
 
 const retrieveMany = async (request:BookRetrieveManyRequest):Promise<BookRetrieveManyResponse> => {
-  return {results: []}
+  return transactionalBookRetriever.retrieveMany(request)
 }
 
 export const bookRetriever = {

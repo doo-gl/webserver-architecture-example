@@ -1,4 +1,5 @@
 import {BookDto} from "./book-dto";
+import {transactionalBookPersister} from "../transactional/transactional-book-persister";
 
 export interface PageCreationRequest {
   pageNumber:number,
@@ -13,7 +14,9 @@ export interface BookCreationRequest {
 
 const create = async (request:BookCreationRequest):Promise<BookDto> => {
 
-  return {name: '', edition: 1, pages: [], id: ''}
+  const book = await transactionalBookPersister.persist(request)
+  // todo send book created event
+  return book
 }
 
 export const bookCreator = {

@@ -1,5 +1,6 @@
-import {PageCreationRequest} from "./book-creator";
+import {bookCreator, PageCreationRequest} from "./book-creator";
 import {BookDto} from "./book-dto";
+import {bookRetriever} from "./book-retriever";
 
 
 export interface NewEditionReleaseRequest {
@@ -9,7 +10,21 @@ export interface NewEditionReleaseRequest {
 }
 
 const release = async (request:NewEditionReleaseRequest):Promise<BookDto> => {
-  return {name: '', edition: 1, pages: [], id: ''}
+
+
+  const oldEditionBook = await bookRetriever.retrieve(request.bookId)
+  const nextEdition = request.edition
+  const booksWithNextEdition = await bookRetriever.retrieveMany({name: oldEditionBook.name, edition: nextEdition})
+  if (booksWithNextEdition.results.length > 0) {
+    return booksWithNextEdition.results[0]
+  }
+  const newEdition = await bookCreator.create({
+    name: oldEditionBook.name,
+    edition: nextEdition,
+    pages: request.updatedPages,
+  })
+
+  return newEdition
 }
 
 export const bookNewEditionReleaser = {
